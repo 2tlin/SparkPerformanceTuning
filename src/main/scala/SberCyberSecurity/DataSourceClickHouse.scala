@@ -87,5 +87,6 @@ object DataSourceClickHouse {
 //    writeDF2Table(personsDF, "persons", "csv") //
 
     writeDF2CH(selectedJoinedDF, "Joined")
+
   }
 }
