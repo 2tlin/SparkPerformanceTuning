@@ -32,7 +32,7 @@ object DataSourceClickHouseJDBC {
   val dbName = "default"
   val schemaName1 = "default"
   val schemaName2 = "ch1"
-  val tableName = "dish"
+
 
   properties.setUser(user)
   properties.setPassword(password)
@@ -113,10 +113,12 @@ object DataSourceClickHouseJDBC {
     .read
     .jdbc(url, tableName, chProps)
 
-  def readTable(tableName: String): DataFrame = spark.read
+  def readTable(tableName: String, customSchema: String = ""): DataFrame = spark.read
     .format("jdbc")
     .option("driver", driver)
     .option("url", url)
+    .option("customSchema", customSchema)
+    .option("stringtype", "unspecified")
     .option("user", user)
     .option("password", password)
     .option("dbtable", tableName)
@@ -130,18 +132,64 @@ object DataSourceClickHouseJDBC {
 //    createTable2CH(properties, "Users")
 //    writeFile2CH("spark-warehouse/persons2", "Persons2")
 
-//    val dishesDF = spark.sql(s"select * from $schemaName2.$tableName") // NOT work. Need to add DATABASE
-//    dishesDF.show()
+    // https://clickhouse.com/docs/ru/getting-started/example-datasets/menus/
+    // use CH in docker from Docker HUB
+    val tableMenu = "menu"
+    val tableDish = "dish"
+    val tableMenuItem = "menu_item"
 
-//    val personsdDF1 = readTableFromCH(s"$schemaName1.$tableName") // work
-//    val personsdDF2 = readTable(s"$schemaName2.$tableName") // work
-//    personsdDF1.show()
+    // Spark does not read ClickHouse UUID type.
+    // Need to create CH view to cast UUID type in origin table
+    val tableMenuPage = "uuid_menu_page_view"
+    val tableMenuPage5 = "menu_page5"
 
-    val query = s"(SELECT * FROM $schemaName1.$tableName WHERE first_appeared >= 1975 AND last_appeared <= 1980) e" // $schemaName2.$tableName"
+    // запись в MATERIALIZED VIEW срабатывает как триггер только при появлении новых записей
+    val databaseDF = spark.sql("show databases") // returns DB as a DF
+    databaseDF.show()
 
-    val dishesDF = readTableInnerQuery(query)
-    dishesDF.show()
+    spark.sql("use default") // every sub sequent select will be related to default DB
 
+  // Creating CH view to cast UUIT type in origin table ??? - not work from Spark ???
 
+//    spark.sql(
+//      """
+//        |CREATE VIEW uuid_menu_page_view
+//        |AS
+//        |	SELECT
+//        |		id AS id,
+//        |		menu_id AS menu_id,
+//        |		page_number AS page_number,
+//        |		image_id AS image_id,
+//        |		full_height AS full_height,
+//        |		full_width AS full_width,
+//        |		CAST (uuid AS CHAR(15)) AS uuid
+//        |	FROM default.menu_page
+//        |""".stripMargin)
+
+    val query = s"(SELECT * FROM $schemaName1.$tableDish WHERE first_appeared >= 1975 AND last_appeared <= 1980 LIMIT 5) e" // $schemaName2.$tableName"
+
+    val query2 = s"""(
+      |  select *
+      |  from $schemaName1.$tableDish e
+      |    where first_appeared >= 1975 AND last_appeared = 1980 and name = 'Te (Tea)'
+      |    limit 5
+      |)""".stripMargin
+
+    val customSchemaMenuPage = "id DECIMAL(38, 0), image_id STRING, uuid CHAR(15)" // CAST (uuid AS CHAR(15)) -- not work
+
+    val menuDF = readTable(tableMenu)
+    val dishDF = readTable(tableDish)
+    val menuItemDF = readTable(tableMenuItem)
+    val menuPageDF = readTable(tableMenuPage)
+//    val menuPage5DF = readTable(tableMenuPage5, customSchemaMenuPage) // not work
+    val queriedDishDF = readTableInnerQuery(query2)
+
+    menuDF.show()
+    dishDF.show()
+    menuItemDF.show()
+    menuPageDF.show()
+    queriedDishDF.show()
+
+//    Thread.sleep(10000000)
   }
 }
