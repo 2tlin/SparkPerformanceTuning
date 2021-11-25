@@ -132,7 +132,7 @@ object DataSourceClickHouseJDBC {
 //    createTable2CH(properties, "Users")
 //    writeFile2CH("spark-warehouse/persons2", "Persons2")
 
-    // ttps://clickhouse.com/docs/ru/getting-started/example-datasets/menus/
+    // https://clickhouse.com/docs/ru/getting-started/example-datasets/menus/
     // use CH in docker from Docker HUB
     val tableMenu = "menu"
     val tableDish = "dish"
